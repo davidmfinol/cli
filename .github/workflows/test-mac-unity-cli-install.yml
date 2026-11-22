@@ -1,0 +1,33 @@
+name: Test macOS Editor install with the Unity CLI
+on: push
+permissions:
+  contents: read
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      ENGINE_VERSION: 6000.6.8f1
+      TARGET_PLATFORM: StandaloneOSX
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Check that Unity Hub is not installed
+        run: ls -d "/Applications/Unity Hub.app" && echo "::warning::Unity Hub is preinstalled" || echo "Unity Hub is not installed"
+      - name: Run SetupMac.setup
+        run: bun run scripts/test-mac-unity-cli-install.ts
+      - name: Check the installed Editor
+        run: |
+          editor="/Applications/Unity/Hub/Editor/$ENGINE_VERSION/Unity.app"
+          ls -d "$editor"
+          lipo -archs "$editor/Contents/MacOS/Unity"
+          ls "$editor/Contents/PlaybackEngines"
+          ls -d "$editor/Contents/PlaybackEngines/MacStandaloneSupport/Variations/"*il2cpp*
+          ls -d "/Applications/Unity Hub.app" 2>/dev/null && echo "::error::Unity Hub was installed" && exit 1 || echo "Unity Hub was not installed"
+      - name: Run setup again (Editor already installed)
+        run: bun run scripts/test-mac-unity-cli-install.ts
